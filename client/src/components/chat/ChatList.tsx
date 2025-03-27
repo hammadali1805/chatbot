@@ -1,94 +1,80 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { chatService, Chat } from '../../services/chatService';
-import { Button } from '../ui/button';
+import React from 'react';
 
-export const ChatList: React.FC = () => {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+interface Chat {
+  _id: string;
+  title: string;
+  updatedAt: string;
+}
 
-  // Load chats
-  useEffect(() => {
-    const loadChats = async () => {
-      try {
-        setIsLoading(true);
-        const loadedChats = await chatService.getAllChats();
-        setChats(loadedChats);
-      } catch (err) {
-        console.error('Error loading chats:', err);
-        setError('Failed to load chats');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+interface ChatListProps {
+  chats: Chat[];
+  activeChatId: string;
+  onSelectChat: (id: string) => void;
+  isLoading: boolean;
+}
 
-    loadChats();
-  }, []);
-
-  const handleCreateChat = async () => {
-    try {
-      setIsLoading(true);
-      const newChat = await chatService.createChat('New Conversation');
-      setChats(prevChats => [newChat, ...prevChats]);
-      navigate(`/chat/${newChat._id}`);
-    } catch (err) {
-      console.error('Error creating chat:', err);
-      setError('Failed to create new chat');
-    } finally {
-      setIsLoading(false);
+const ChatList: React.FC<ChatListProps> = ({ 
+  chats, 
+  activeChatId, 
+  onSelectChat,
+  isLoading 
+}) => {
+  // Format date to relative time (e.g. "2 days ago")
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      // Check if it's today
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      // Format as MM/DD/YYYY
+      return date.toLocaleDateString();
     }
   };
 
-  const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  if (isLoading && chats.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
+        <p className="text-gray-500">Loading chats...</p>
+      </div>
+    );
+  }
 
-    try {
-      await chatService.deleteChat(chatId);
-      setChats(prevChats => prevChats.filter(chat => chat._id !== chatId));
-    } catch (err) {
-      console.error('Error deleting chat:', err);
-      setError('Failed to delete chat');
-    }
-  };
-
-  if (error) {
-    return <div className="text-red-500 p-4">{error}</div>;
+  if (chats.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-4">
+        <p className="text-gray-500">No chats yet</p>
+        <p className="text-gray-400 text-sm">Start a new conversation</p>
+      </div>
+    );
   }
 
   return (
-    <div className="w-64 bg-gray-100 p-4 flex flex-col h-full">
-      <Button
-        onClick={handleCreateChat}
-        disabled={isLoading}
-        className="mb-4 w-full"
-      >
-        New Chat
-      </Button>
-
-      <div className="flex-1 overflow-y-auto space-y-2">
-        {isLoading && !chats.length ? (
-          <div className="text-center py-4">Loading...</div>
-        ) : (
-          chats.map((chat) => (
-            <Link
-              key={chat._id}
-              to={`/chat/${chat._id}`}
-              className="block p-2 hover:bg-gray-200 rounded-lg relative group"
-            >
-              <div className="truncate pr-8">{chat.title}</div>
-              <button
-                onClick={(e) => handleDeleteChat(chat._id, e)}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
-              >
-                Delete
-              </button>
-            </Link>
-          ))
-        )}
-      </div>
+    <div className="overflow-y-auto max-h-full">
+      {chats.map(chat => (
+        <div
+          key={chat._id}
+          className={`p-3 cursor-pointer border-b border-gray-100 hover:bg-gray-50 ${
+            activeChatId === chat._id ? 'bg-blue-50' : ''
+          }`}
+          onClick={() => onSelectChat(chat._id)}
+        >
+          <div className="font-medium text-gray-800 truncate">{chat.title}</div>
+          <div className="text-xs text-gray-500">
+            {chat.updatedAt ? formatDate(chat.updatedAt) : 'New'}
+          </div>
+        </div>
+      ))}
     </div>
   );
-}; 
+};
+
+export default ChatList; 

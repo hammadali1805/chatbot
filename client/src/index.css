@@ -15,3 +15,142 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Add custom styles for markdown content */
+.markdown-content {
+  @apply text-gray-800;
+}
+
+/* Styling for bold/strong text */
+.markdown-content strong {
+  @apply font-bold text-blue-700;
+}
+
+/* Style for code blocks in markdown */
+.markdown-content pre {
+  @apply bg-gray-800 p-4 rounded-md my-4 overflow-x-auto shadow-md border border-gray-600;
+}
+
+.markdown-content code {
+  @apply font-mono text-sm;
+}
+
+/* Code block content */
+.markdown-content pre > code {
+  @apply text-gray-100 px-0 py-0 bg-transparent block;
+}
+
+/* Style for inline code in markdown */
+.markdown-content :not(pre) > code {
+  @apply bg-gray-200 text-red-600 px-1.5 py-0.5 rounded text-sm border border-gray-300;
+}
+
+/* Style for blockquotes */
+.markdown-content blockquote {
+  @apply border-l-4 border-blue-400 pl-4 italic my-4 py-2 bg-blue-50 rounded-r-md;
+}
+
+/* Style for lists */
+.markdown-content ul {
+  @apply list-disc pl-5 my-2 space-y-1;
+}
+
+.markdown-content ol {
+  @apply list-decimal pl-5 my-2 space-y-1;
+}
+
+/* Style for list items to better handle bold text */
+.markdown-content li {
+  @apply my-1;
+}
+
+.markdown-content li strong {
+  @apply mr-1 inline-block;
+}
+
+/* Style for headings */
+.markdown-content h1 {
+  @apply text-2xl font-bold mt-6 mb-4 pb-2 border-b border-gray-200;
+}
+
+.markdown-content h2 {
+  @apply text-xl font-bold mt-5 mb-3 pb-1 text-blue-700;
+}
+
+.markdown-content h3 {
+  @apply text-lg font-bold mt-4 mb-2 text-blue-600;
+}
+
+/* Style for tables */
+.markdown-content table {
+  @apply border-collapse border border-gray-300 my-4 w-full shadow-sm;
+}
+
+.markdown-content th {
+  @apply border border-gray-300 px-3 py-2 bg-gray-700 text-white font-bold;
+}
+
+.markdown-content td {
+  @apply border border-gray-300 px-3 py-2;
+}
+
+/* Add link styling */
+.markdown-content a {
+  @apply text-blue-600 hover:underline;
+}
+
+/* Syntax highlighting classes */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  @apply text-gray-400;
+}
+
+.token.punctuation {
+  @apply text-gray-300;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  @apply text-red-400;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  @apply text-green-400;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  @apply text-yellow-300;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  @apply text-blue-400;
+}
+
+.token.function,
+.token.class-name {
+  @apply text-purple-400;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  @apply text-orange-400;
+}

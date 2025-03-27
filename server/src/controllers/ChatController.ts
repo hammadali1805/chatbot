@@ -3,6 +3,14 @@ import { BaseController } from './BaseController';
 import { Chat } from '../models/Chat';
 import { getAzureChatResponse } from '../utils/azureOpenai';
 
+// Define interfaces for cleaner typing
+interface ChatMessage {
+  _id?: any;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date | string;
+}
+
 export class ChatController extends BaseController {
   constructor() {
     super(Chat, 'Chat');
@@ -89,17 +97,37 @@ export class ChatController extends BaseController {
       // Save the chat with both user message and AI response
       await chat.save();
       
-      // Transform the response to include sender property expected by the client
-      const transformedChat = {
-        ...chat.toObject(),
-        messages: chat.messages.map(msg => ({
-          ...msg,
-          sender: msg.role === 'user' ? 'user' : 'bot'
-        }))
+      // Convert the Mongoose document to a plain object
+      const chatObject = chat.toObject();
+      
+      // Format messages in a way the frontend expects
+      const formattedMessages = chatObject.messages.map((msg: any) => {
+        // Make sure _id exists for each message
+        if (!msg._id) {
+          msg._id = new Date().getTime().toString();
+        }
+        
+        // Make sure timestamp is a string
+        if (msg.timestamp instanceof Date) {
+          msg.timestamp = msg.timestamp.toISOString();
+        }
+        
+        return msg;
+      });
+      
+      // Create the response object
+      const responseData = {
+        ...chatObject,
+        messages: formattedMessages
       };
       
-      console.log("Sending complete response back to client");
-      res.json(transformedChat);
+      console.log("Sending formatted response to client:", {
+        _id: responseData._id,
+        title: responseData.title,
+        messageCount: responseData.messages.length
+      });
+      
+      res.json(responseData);
     } catch (error: any) {
       console.error('Error adding message:', error);
       res.status(500).json({ 
@@ -108,7 +136,7 @@ export class ChatController extends BaseController {
     }
   };
 
-  // Override the getAll method to add sender property for client
+  // Override the getAll method to ensure consistent formatting
   getAll = async (req: Request, res: Response): Promise<void> => {
     try {
       console.log("Fetching all chats for user");
@@ -122,22 +150,39 @@ export class ChatController extends BaseController {
       const chats = await Chat.find({ userId }).sort({ updatedAt: -1 });
       console.log(`Found ${chats.length} chats for user ${userId}`);
       
-      const transformedChats = chats.map(chat => ({
-        ...chat.toObject(),
-        messages: chat.messages.map((msg: any) => ({
-          ...msg,
-          sender: msg.role === 'user' ? 'user' : 'bot'
-        }))
-      }));
+      // Format chats in a way the frontend expects
+      const formattedChats = chats.map(chat => {
+        const chatObject = chat.toObject();
+        
+        // Format messages
+        const formattedMessages = chatObject.messages.map((msg: any) => {
+          // Make sure _id exists for each message
+          if (!msg._id) {
+            msg._id = new Date().getTime().toString();
+          }
+          
+          // Make sure timestamp is a string
+          if (msg.timestamp instanceof Date) {
+            msg.timestamp = msg.timestamp.toISOString();
+          }
+          
+          return msg;
+        });
+        
+        return {
+          ...chatObject,
+          messages: formattedMessages
+        };
+      });
       
-      res.json(transformedChats);
+      res.json(formattedChats);
     } catch (error: any) {
       console.error(`Error getting all chats:`, error);
       res.status(500).json({ message: `Error getting all chats: ${error.message}` });
     }
   };
   
-  // Override the getOne method to add sender property for client
+  // Override the getOne method to ensure consistent formatting
   getOne = async (req: Request, res: Response): Promise<Response<any, Record<string, any>> | undefined> => {
     try {
       console.log(`Fetching chat with ID: ${req.params.id}`);
@@ -156,15 +201,31 @@ export class ChatController extends BaseController {
       
       console.log(`Found chat with ${chat.messages.length} messages`);
       
-      const transformedChat = {
-        ...chat.toObject(),
-        messages: chat.messages.map((msg: any) => ({
-          ...msg,
-          sender: msg.role === 'user' ? 'user' : 'bot'
-        }))
+      // Convert the Mongoose document to a plain object
+      const chatObject = chat.toObject();
+      
+      // Format messages in a way the frontend expects
+      const formattedMessages = chatObject.messages.map((msg: any) => {
+        // Make sure _id exists for each message
+        if (!msg._id) {
+          msg._id = new Date().getTime().toString();
+        }
+        
+        // Make sure timestamp is a string
+        if (msg.timestamp instanceof Date) {
+          msg.timestamp = msg.timestamp.toISOString();
+        }
+        
+        return msg;
+      });
+      
+      // Create the response object
+      const responseData = {
+        ...chatObject,
+        messages: formattedMessages
       };
       
-      return res.json(transformedChat);
+      return res.json(responseData);
     } catch (error: any) {
       console.error(`Error getting chat:`, error);
       return res.status(500).json({ message: `Error getting chat: ${error.message}` });
@@ -182,31 +243,38 @@ export class ChatController extends BaseController {
         return;
       }
       
-      // Create a new chat with initial welcome message
+      const now = new Date();
+      
+      // Create a new chat with no initial welcome message
       const newChat = new Chat({
         userId,
         title: req.body.title || 'New Conversation',
-        messages: [{
-          role: 'assistant',
-          content: 'Hello! I\'m your AI study assistant. How can I help you today?',
-          timestamp: new Date()
-        }],
-        createdAt: new Date(),
-        updatedAt: new Date()
+        messages: [], // Empty messages array - no welcome message
+        createdAt: now,
+        updatedAt: now
       });
       
       await newChat.save();
       console.log(`Created new chat with ID: ${newChat._id}`);
       
-      const transformedChat = {
-        ...newChat.toObject(),
-        messages: newChat.messages.map((msg: any) => ({
-          ...msg,
-          sender: msg.role === 'user' ? 'user' : 'bot'
-        }))
+      // Convert to plain object and format for the frontend
+      const chatObject = newChat.toObject();
+      
+      // Format messages
+      const formattedMessages = chatObject.messages.map((msg: any) => {
+        // Make sure timestamp is a string
+        if (msg.timestamp instanceof Date) {
+          msg.timestamp = msg.timestamp.toISOString();
+        }
+        return msg;
+      });
+      
+      const responseData = {
+        ...chatObject,
+        messages: formattedMessages
       };
       
-      res.status(201).json(transformedChat);
+      res.status(201).json(responseData);
     } catch (error: any) {
       console.error('Error creating chat:', error);
       res.status(500).json({ message: `Error creating chat: ${error.message}` });
