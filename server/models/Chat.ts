@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const messageSchema = new mongoose.Schema({
   role: {
     type: String,
-    enum: ['user', 'assistant'],
+    enum: ['user', 'assistant', 'system'],
     required: true
   },
   content: {
@@ -13,6 +13,23 @@ const messageSchema = new mongoose.Schema({
   timestamp: {
     type: Date,
     default: Date.now
+  },
+  metadata: {
+    type: {
+      type: String,
+      enum: ['query', 'quiz', 'study_plan', 'note', null],
+      default: null
+    },
+    referenceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'metadata.type',
+      default: null
+    },
+    action: {
+      type: String,
+      enum: ['create', 'update', 'delete', null],
+      default: null
+    }
   }
 });
 
@@ -27,6 +44,17 @@ const chatSchema = new mongoose.Schema({
     required: true
   },
   messages: [messageSchema],
+  context: {
+    currentTopic: String,
+    currentSubject: String,
+    activeItems: [{
+      type: {
+        type: String,
+        enum: ['quiz', 'study_plan', 'note']
+      },
+      id: mongoose.Schema.Types.ObjectId
+    }]
+  },
   createdAt: {
     type: Date,
     default: Date.now

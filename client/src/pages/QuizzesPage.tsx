@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import { Card, CardContent, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -7,11 +8,12 @@ import QuizForm from '../components/forms/QuizForm';
 import { quizService, Quiz } from '../services/quizService';
 
 const QuizzesPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showQuizForm, setShowQuizForm] = useState(false);
-  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
+  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(id || null);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<number[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
@@ -23,6 +25,17 @@ const QuizzesPage: React.FC = () => {
         setIsLoading(true);
         const data = await quizService.getAllQuizzes();
         setQuizzes(data);
+        
+        // If we have a specific ID parameter, set it as selected
+        if (id && data.some(quiz => quiz._id === id)) {
+          setSelectedQuizId(id);
+          // Check if the quiz is already completed
+          const selectedQuiz = data.find(quiz => quiz._id === id);
+          if (selectedQuiz && selectedQuiz.completed) {
+            setQuizCompleted(true);
+          }
+        }
+        
         setError(null);
       } catch (err) {
         console.error('Error fetching quizzes:', err);
@@ -33,7 +46,7 @@ const QuizzesPage: React.FC = () => {
     };
 
     fetchQuizzes();
-  }, []);
+  }, [id]);
 
   const handleCreateQuiz = () => {
     setShowQuizForm(true);

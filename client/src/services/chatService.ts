@@ -7,6 +7,11 @@ export interface Message {
   content: string;
   timestamp?: string;
   _id?: string;
+  metadata?: {
+    type: 'query' | 'quiz' | 'study_plan' | 'note' | null;
+    referenceId?: string;
+    action?: 'create' | 'update' | 'delete' | null;
+  };
 }
 
 // Define the Chat type

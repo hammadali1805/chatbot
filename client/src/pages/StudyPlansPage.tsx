@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardFooter } from '../components/ui/card';
@@ -11,13 +12,14 @@ import { studyPlanService, StudyPlan, Topic } from '../services/studyPlanService
 import { generateStudyPlanPDF } from '../utils/pdfUtils';
 
 const StudyPlansPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const [studyPlans, setStudyPlans] = useState<StudyPlan[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showStudyPlanForm, setShowStudyPlanForm] = useState(false);
   const [showProgressForm, setShowProgressForm] = useState(false);
   const [showUpdatePlanForm, setShowUpdatePlanForm] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(id || null);
 
   // Fetch study plans from API
   useEffect(() => {
@@ -26,6 +28,12 @@ const StudyPlansPage: React.FC = () => {
         setIsLoading(true);
         const data = await studyPlanService.getAllStudyPlans();
         setStudyPlans(data);
+        
+        // If we have a specific ID parameter, set it as selected
+        if (id && data.some(plan => plan._id === id)) {
+          setSelectedPlanId(id);
+        }
+        
         setError(null);
       } catch (err) {
         console.error('Error fetching study plans:', err);
@@ -36,7 +44,7 @@ const StudyPlansPage: React.FC = () => {
     };
 
     fetchStudyPlans();
-  }, []);
+  }, [id]);
 
   const toggleTaskCompletion = async (planId: string, topicId: string) => {
     try {

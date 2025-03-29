@@ -12,6 +12,11 @@ interface ApiMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  metadata?: {
+    type: 'query' | 'quiz' | 'study_plan' | 'note' | null;
+    referenceId?: string;
+    action?: 'create' | 'update' | 'delete' | null;
+  };
 }
 
 interface ApiChat {
@@ -98,7 +103,8 @@ const Sidebar: React.FC = () => {
           id: msg._id || Date.now().toString(),
           role: msg.role,
           content: msg.content,
-          timestamp: new Date(msg.timestamp)
+          timestamp: msg.timestamp || new Date().toISOString(),
+          metadata: msg.metadata
         }))
       });
       
@@ -131,6 +137,10 @@ const Sidebar: React.FC = () => {
       );
 
       console.log('Selected chat data:', response.data);
+      console.log('Chat metadata check:', response.data.messages.map(msg => ({
+        has_metadata: !!msg.metadata,
+        metadata_details: msg.metadata ? JSON.stringify(msg.metadata) : null
+      })));
 
       // Update current chat in context
       setCurrentChat({
@@ -141,7 +151,8 @@ const Sidebar: React.FC = () => {
           id: msg._id || Date.now().toString(),
           role: msg.role,
           content: msg.content,
-          timestamp: new Date(msg.timestamp)
+          timestamp: msg.timestamp || new Date().toISOString(),
+          metadata: msg.metadata
         }))
       });
       

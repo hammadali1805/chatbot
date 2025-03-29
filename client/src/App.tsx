@@ -59,6 +59,16 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+        
+        {/* Add route for individual study plan */}
+        <Route
+          path="/study-plans/:id"
+          element={
+            <ProtectedRoute>
+              <StudyPlansPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/quizzes"
@@ -68,8 +78,29 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+        
+        {/* Add route for individual quiz */}
+        <Route
+          path="/quizzes/:id"
+          element={
+            <ProtectedRoute>
+              <QuizzesPage />
+            </ProtectedRoute>
+          }
+        />
+        
         <Route
           path="/notes"
+          element={
+            <ProtectedRoute>
+              <NotesPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Add route for individual note */}
+        <Route
+          path="/notes/:id"
           element={
             <ProtectedRoute>
               <NotesPage />

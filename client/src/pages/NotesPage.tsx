@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardFooter } from '../components/ui/card';
@@ -7,11 +8,12 @@ import { noteService, Note } from '../services/noteService';
 import NoteForm from '../components/forms/NoteForm';
 
 const NotesPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNoteForm, setShowNoteForm] = useState(false);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(id || null);
 
   // Fetch notes from API
   useEffect(() => {
@@ -20,6 +22,13 @@ const NotesPage: React.FC = () => {
         setIsLoading(true);
         const data = await noteService.getAllNotes();
         setNotes(data);
+        
+        // If we have a specific ID parameter, set it as selected
+        if (id && data.some(note => note._id === id)) {
+          setSelectedNoteId(id);
+          setShowNoteForm(false);
+        }
+        
         setError(null);
       } catch (err) {
         console.error('Error fetching notes:', err);
@@ -30,7 +39,7 @@ const NotesPage: React.FC = () => {
     };
 
     fetchNotes();
-  }, []);
+  }, [id]);
 
   const handleCreateNote = () => {
     setShowNoteForm(true);

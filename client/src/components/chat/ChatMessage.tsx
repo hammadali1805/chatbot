@@ -1,172 +1,203 @@
-import React, { useEffect, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import Prism from 'prismjs';
-import 'prismjs/themes/prism-tomorrow.css';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-typescript';
-import 'prismjs/components/prism-jsx';
-import 'prismjs/components/prism-tsx';
-import 'prismjs/components/prism-bash';
-import 'prismjs/components/prism-java';
-import 'prismjs/components/prism-c';
-import 'prismjs/components/prism-cpp';
-import 'prismjs/components/prism-csharp';
-import 'prismjs/components/prism-sql';
-import 'prismjs/components/prism-markup';
-import 'prismjs/components/prism-markdown';
-import 'prismjs/components/prism-json';
+import React from 'react';
+import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
-interface ChatMessageProps {
+interface Message {
+  role: 'user' | 'assistant' | 'system';
   content: string;
-  isUser: boolean;
-  timestamp?: string;
-  isLoading?: boolean;
+  timestamp: string;
+  metadata?: {
+    type: 'query' | 'quiz' | 'study_plan' | 'note' | null;
+    referenceId?: string;
+    action?: 'create' | 'update' | 'delete' | null;
+  };
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ 
-  content, 
-  isUser, 
-  timestamp,
-  isLoading = false
-}) => {
-  const markdownRef = useRef<HTMLDivElement>(null);
+interface ChatMessageProps {
+  message: Message;
+}
 
-  // Apply syntax highlighting when component mounts or updates
-  useEffect(() => {
-    if (!isUser && !isLoading && markdownRef.current) {
-      // Small delay to make sure the DOM is fully rendered
-      setTimeout(() => {
-        // Initialize Prism
-        if (Prism && typeof Prism.highlightAll === 'function') {
-          Prism.highlightAll();
-        }
-        
-        // Also try to highlight under the specific element
-        if (markdownRef.current && typeof Prism.highlightAllUnder === 'function') {
-          Prism.highlightAllUnder(markdownRef.current);
-        }
-      }, 10);
-    }
-  }, [content, isUser, isLoading]);
-
-  // Format timestamp into a readable format
-  const formatTime = (timestamp?: string): string => {
-    if (!timestamp) return '';
-    
-    try {
-      const date = new Date(timestamp);
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.warn('Invalid date in ChatMessage:', timestamp);
-        return '';
-      }
-      
-      // Format the time
-      return date.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit'
-      });
-    } catch (error) {
-      console.error('Error formatting timestamp in ChatMessage:', error, 'Timestamp:', timestamp);
-      return '';
+const DocumentNavButton: React.FC<{
+  type: string;
+  id: string;
+  action: 'create' | 'update';
+}> = ({ type, id, action }) => {
+  const navigate = useNavigate();
+  
+  // Skip rendering if id is empty
+  if (!id) {
+    console.error('DocumentNavButton received empty id for type:', type);
+    return null;
+  }
+  
+  const getRoute = () => {
+    switch (type) {
+      case 'quiz':
+        return '/quizzes';
+      case 'study_plan':
+        return '/study-plans';
+      case 'note':
+        return '/notes';
+      default:
+        return '/';
     }
   };
 
-  // Custom components for markdown rendering
-  const markdownComponents = {
-    code({ node, inline, className, children, ...props }: any) {
-      const match = /language-(\w+)/.exec(className || '');
-      const language = match ? match[1] : '';
-      
-      return !inline && match ? (
-        <pre className={`language-${language}`}>
-          <code className={`language-${language}`} {...props}>
-            {String(children).replace(/\n$/, '')}
-          </code>
-        </pre>
-      ) : (
-        <code className={className} {...props}>
-          {children}
-        </code>
-      );
-    },
-    // Customize strong/bold text
-    strong({ node, children, ...props }: any) {
-      return <strong className="font-bold text-blue-700" {...props}>{children}</strong>;
-    },
-    // Customize other elements as needed
-    p({ node, children, ...props }: any) {
-      return <p className="mb-2" {...props}>{children}</p>;
-    },
-    a({ node, children, href, ...props }: any) {
-      return (
-        <a 
-          href={href} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:underline"
-          {...props}
-        >
-          {children}
-        </a>
-      );
-    },
-    // Improve list rendering
-    ul({ node, children, ...props }: any) {
-      return <ul className="list-disc pl-5 my-2 space-y-1" {...props}>{children}</ul>;
-    },
-    ol({ node, children, ...props }: any) {
-      return <ol className="list-decimal pl-5 my-2 space-y-1" {...props}>{children}</ol>;
-    },
-    // Improve blockquote rendering
-    blockquote({ node, children, ...props }: any) {
-      return <blockquote className="border-l-4 border-blue-400 pl-4 italic my-4 py-2 bg-blue-50 rounded-r-md" {...props}>{children}</blockquote>;
-    },
-    // Improve table rendering
-    table({ node, children, ...props }: any) {
-      return <table className="border-collapse border border-gray-300 my-4 w-full shadow-sm" {...props}>{children}</table>;
-    },
-    th({ node, children, ...props }: any) {
-      return <th className="border border-gray-300 px-3 py-2 bg-gray-700 text-white font-bold" {...props}>{children}</th>;
-    },
-    td({ node, children, ...props }: any) {
-      return <td className="border border-gray-300 px-3 py-2" {...props}>{children}</td>;
+  const getIcon = () => {
+    switch (type) {
+      case 'quiz':
+        return '📝';
+      case 'study_plan':
+        return '📚';
+      case 'note':
+        return '📓';
+      default:
+        return '📄';
     }
+  };
+
+  const getLabel = () => {
+    const typeLabel = type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return `${action === 'create' ? 'View' : 'Open'} ${typeLabel}`;
+  };
+
+  const handleNavigate = () => {
+    const route = `${getRoute()}/${id}`;
+    console.log(`Attempting navigation to: ${route} for ${type} with id: ${id}`);
+    
+    // Log navigation details to the console in a more visible way
+    console.log('%c NAVIGATION', 'background: green; color: white; padding: 2px 5px; border-radius: 2px;');
+    console.log('→ Route:', route);
+    console.log('→ Document Type:', type);
+    console.log('→ Document ID:', id);
+    
+    // Add a more visible notification for debugging
+    const notification = document.createElement('div');
+    notification.textContent = `Navigating to document: ${type} (${id})`;
+    notification.style.position = 'fixed';
+    notification.style.bottom = '20px';
+    notification.style.left = '20px';
+    notification.style.backgroundColor = '#4CAF50';
+    notification.style.color = 'white';
+    notification.style.padding = '10px';
+    notification.style.borderRadius = '5px';
+    notification.style.zIndex = '1000';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      document.body.removeChild(notification);
+    }, 3000);
+    
+    // Use window.location for direct navigation
+    window.location.href = route;
   };
 
   return (
-    <div className={`p-3 rounded-lg max-w-3/4 ${
-      isUser 
-        ? 'ml-auto bg-blue-100 text-blue-800' 
-        : 'mr-auto bg-gray-100 text-gray-800'
-    }`}>
-      {isLoading ? (
-        <div className="flex items-center space-x-2">
-          <div className="flex space-x-1">
-            <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "0ms" }}></div>
-            <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "100ms" }}></div>
-            <div className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "200ms" }}></div>
+    <button
+      onClick={handleNavigate}
+      className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium text-gray-700 hover:text-gray-900"
+    >
+      <span className="text-lg">{getIcon()}</span>
+      {getLabel()}
+    </button>
+  );
+};
+
+const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+  const isUser = message.role === 'user';
+  const formattedTime = format(new Date(message.timestamp), 'h:mm a');
+  
+  // Enhanced debug logging
+  console.log(`Message (${isUser ? 'user' : 'assistant'}):`);
+  console.log('- Content:', message.content.substring(0, 30) + (message.content.length > 30 ? '...' : ''));
+  console.log('- Has metadata:', !!message.metadata);
+  
+  if (message.metadata) {
+    console.log('- Metadata details:', {
+      type: message.metadata.type,
+      action: message.metadata.action,
+      referenceId: message.metadata.referenceId
+    });
+  }
+  
+  // Check if we have valid metadata for document navigation
+  const hasValidMetadata = Boolean(
+    message.metadata && 
+    message.metadata.type && 
+    message.metadata.type !== 'query' && 
+    message.metadata.referenceId && 
+    (message.metadata.action === 'create' || message.metadata.action === 'update')
+  );
+  
+  console.log('- Should show navigation:', hasValidMetadata);
+  
+  const getMessageStyle = () => {
+    if (message.metadata?.type) {
+      switch (message.metadata.type) {
+        case 'quiz':
+          return 'bg-blue-50 border-blue-200';
+        case 'study_plan':
+          return 'bg-green-50 border-green-200';
+        case 'note':
+          return 'bg-purple-50 border-purple-200';
+        default:
+          return isUser ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200';
+      }
+    }
+    return isUser ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200';
+  };
+
+  const getMessageIcon = () => {
+    if (message.metadata?.type) {
+      switch (message.metadata.type) {
+        case 'quiz':
+          return '📝';
+        case 'study_plan':
+          return '📚';
+        case 'note':
+          return '📓';
+        default:
+          return isUser ? '👤' : '🤖';
+      }
+    }
+    return isUser ? '👤' : '🤖';
+  };
+
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex items-start space-x-2 max-w-[80%] ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
+        <div className="flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+            <span className="text-lg">{getMessageIcon()}</span>
           </div>
-          <span className="text-sm text-gray-500">AI is thinking...</span>
         </div>
-      ) : isUser ? (
-        <p className="whitespace-pre-wrap">{content}</p>
-      ) : (
-        <div ref={markdownRef} className="markdown-content prose prose-sm max-w-none">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-            {content}
-          </ReactMarkdown>
+        <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+          <div className={`rounded-lg px-4 py-2 ${getMessageStyle()} border`}>
+            <div className="text-sm text-gray-800 whitespace-pre-wrap">{message.content}</div>
+            {message.metadata?.type && message.metadata.type !== 'query' && (
+              <div className="mt-2 text-xs text-gray-500">
+                {message.metadata.action === 'create' && 'Created new '}
+                {message.metadata.action === 'update' && 'Updated '}
+                {message.metadata.action === 'delete' && 'Deleted '}
+                {message.metadata.type.replace('_', ' ')}
+              </div>
+            )}
+            {hasValidMetadata && message.metadata && (
+              <>
+                <div className="text-xs text-blue-500 mt-1 mb-1">
+                  Document ID: {message.metadata.referenceId}
+                </div>
+                <DocumentNavButton
+                  type={message.metadata.type as string}
+                  id={message.metadata.referenceId || ''}
+                  action={message.metadata.action as 'create' | 'update'}
+                />
+              </>
+            )}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">{formattedTime}</div>
         </div>
-      )}
-      {timestamp && !isLoading && (
-        <span className="text-xs text-gray-500 mt-1 block">
-          {formatTime(timestamp)}
-        </span>
-      )}
+      </div>
     </div>
   );
 };

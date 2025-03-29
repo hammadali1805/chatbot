@@ -34,6 +34,7 @@ interface AzureOpenAIResponse {
  */
 export const getAzureChatResponse = async (messages: Message[]): Promise<string> => {
   try {
+    console.log(messages);
     if (!API_KEY || !ENDPOINT) {
       console.log('Azure OpenAI not configured, attempting to use regular OpenAI API');
       return await getRegularOpenAIResponse(messages);
@@ -42,7 +43,7 @@ export const getAzureChatResponse = async (messages: Message[]): Promise<string>
     console.log(`Calling Azure OpenAI API with ${messages.length} messages`);
     
     const url = `${ENDPOINT}/openai/deployments/${DEPLOYMENT_NAME}/chat/completions?api-version=${API_VERSION}`;
-    
+  
     const response = await axios.post<AzureOpenAIResponse>(
       url,
       {

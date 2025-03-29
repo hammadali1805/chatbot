@@ -6,10 +6,14 @@ import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 
 interface Message {
+  role: 'user' | 'assistant' | 'system';
   content: string;
-  isUser: boolean;
   timestamp: string;
-  isLoading?: boolean;
+  metadata?: {
+    type: 'query' | 'quiz' | 'study_plan' | 'note' | null;
+    referenceId?: string;
+    action?: 'create' | 'update' | 'delete' | null;
+  };
 }
 
 // Interfaces for API responses
@@ -18,6 +22,11 @@ interface ApiMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  metadata?: {
+    type: 'query' | 'quiz' | 'study_plan' | 'note' | null;
+    referenceId?: string;
+    action?: 'create' | 'update' | 'delete' | null;
+  };
 }
 
 interface ApiChat {
@@ -31,8 +40,8 @@ interface ApiChat {
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const ChatWindow: React.FC = () => {
-  const { setCurrentChat, currentChat } = useAppContext();
-  const { isAuthenticated } = useAuth();
+  const { setCurrentChat, currentChat, addMessageToChat } = useAppContext();
+  const { isAuthenticated, user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +54,10 @@ const ChatWindow: React.FC = () => {
   // Format timestamp to a readable format
   const formatTimestamp = (timestamp: string | Date | undefined): string => {
     try {
-      // If timestamp is undefined, use current date
       if (!timestamp) {
         return new Date().toISOString();
       }
       
-      // If it's already a Date object, convert to ISO string
       if (timestamp instanceof Date) {
         if (isNaN(timestamp.getTime())) {
           console.warn('Invalid Date object:', timestamp);
@@ -59,7 +66,6 @@ const ChatWindow: React.FC = () => {
         return timestamp.toISOString();
       }
       
-      // Otherwise, create a new Date from string and convert to ISO
       const date = new Date(timestamp);
       if (isNaN(date.getTime())) {
         console.warn('Invalid date string:', timestamp);
@@ -82,20 +88,30 @@ const ChatWindow: React.FC = () => {
     const initializeChat = async () => {
       setIsInitializing(true);
       try {
-        // If there's already a currentChat (selected from sidebar), use it
         if (currentChat) {
           console.log('Using current chat:', currentChat);
+          console.log('Chat messages metadata checks:', currentChat.messages.map(msg => ({
+            has_metadata: !!msg.metadata,
+            metadata_details: msg.metadata ? {
+              type: msg.metadata.type,
+              action: msg.metadata.action,
+              referenceId: msg.metadata.referenceId
+            } : null
+          })));
+          
           const formattedMessages = currentChat.messages.map(msg => ({
+            role: msg.role,
             content: msg.content,
-            isUser: msg.role === 'user',
-            timestamp: formatTimestamp(msg.timestamp)
+            timestamp: formatTimestamp(msg.timestamp),
+            metadata: msg.metadata
           }));
           
           console.log('Initial formatted messages:', formattedMessages);
+          console.log('Formatted messages metadata present:', formattedMessages.filter(msg => !!msg.metadata).length);
+          
           setMessages(formattedMessages);
           setActiveChatId(currentChat.id);
           
-          // Check if this is a temporary chat (ID starts with 'temp-')
           const isTempId = typeof currentChat.id === 'string' && currentChat.id.startsWith('temp-');
           setIsTempChat(isTempId);
           
@@ -103,7 +119,6 @@ const ChatWindow: React.FC = () => {
           return;
         }
         
-        // Otherwise, show a temporary chat interface
         setIsTempChat(true);
         setMessages([]);
         setActiveChatId(null);
@@ -124,7 +139,6 @@ const ChatWindow: React.FC = () => {
       const token = localStorage.getItem('token');
       if (!token) return null;
 
-      // Create a new chat in the database
       const response = await axios.post<ApiChat>(
         `${API_URL}/api/chats`,
         { title: 'New Conversation' },
@@ -138,21 +152,19 @@ const ChatWindow: React.FC = () => {
 
       console.log('Created new chat, response:', response.data);
 
-      // Set active chat ID to the new chat's ID
       const newChatId = response.data._id;
       setActiveChatId(newChatId);
       setIsTempChat(false);
       
-      // Update the app context with the new chat
       setCurrentChat({
         id: newChatId,
         title: response.data.title,
         createdAt: formatTimestamp(response.data.createdAt || new Date()),
         messages: response.data.messages.map(msg => ({
-          id: msg._id || Date.now().toString(),
           role: msg.role,
           content: msg.content,
-          timestamp: new Date(formatTimestamp(msg.timestamp))
+          timestamp: formatTimestamp(msg.timestamp),
+          metadata: msg.metadata
         }))
       });
       
@@ -164,7 +176,6 @@ const ChatWindow: React.FC = () => {
     }
   };
 
-  // Handle sending a new message
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || isSubmitting) return;
     
@@ -175,30 +186,26 @@ const ChatWindow: React.FC = () => {
       // Add user message to UI immediately
       const now = new Date();
       const userMessage: Message = {
+        role: 'user',
         content: content,
-        isUser: true,
         timestamp: formatTimestamp(now)
       };
       
-      // Add user message to UI immediately
       setMessages(prevMessages => [...prevMessages, userMessage]);
       
-      // Add a loading message to indicate AI is thinking (optimistic UI)
+      // Add a loading message
       const loadingMessage: Message = {
+        role: 'assistant',
         content: '...',
-        isUser: false,
-        timestamp: formatTimestamp(new Date()),
-        isLoading: true
+        timestamp: formatTimestamp(new Date())
       };
       
-      // Wait a tiny bit before showing the loading indicator so it feels responsive
       setTimeout(() => {
         if (isSubmitting) {
           setMessages(prevMessages => [...prevMessages, loadingMessage]);
         }
       }, 500);
       
-      // Get token for API calls
       const token = localStorage.getItem('token');
       if (!token) {
         setError('You need to be logged in to send messages.');
@@ -206,11 +213,9 @@ const ChatWindow: React.FC = () => {
         return;
       }
       
-      // If this is a temporary chat, create a new chat before sending message
       let chatId = activeChatId;
       if (isTempChat || !chatId) {
         try {
-          // Create a new chat in the database without updating UI yet
           const response = await axios.post<ApiChat>(
             `${API_URL}/api/chats`,
             { title: 'New Conversation' },
@@ -223,8 +228,6 @@ const ChatWindow: React.FC = () => {
           );
           
           console.log('Created new chat, response:', response.data);
-          
-          // Get the new chat ID but don't update UI state yet
           chatId = response.data._id;
           
         } catch (createError) {
@@ -235,7 +238,6 @@ const ChatWindow: React.FC = () => {
         }
       }
       
-      // Make API call to send message and get response
       const response = await axios.post<ApiChat>(
         `${API_URL}/api/chats/${chatId}/messages`,
         { content },
@@ -248,7 +250,9 @@ const ChatWindow: React.FC = () => {
       );
       
       console.log('Message sent, complete API response:', response.data);
-      console.log('Response messages:', response.data.messages);
+      console.log('API response messages metadata:', response.data.messages.map(msg => 
+        msg.metadata ? JSON.stringify(msg.metadata) : 'null'
+      ));
       
       if (!response.data.messages || !Array.isArray(response.data.messages)) {
         console.error('Invalid messages array in response:', response.data);
@@ -257,34 +261,24 @@ const ChatWindow: React.FC = () => {
         return;
       }
       
-      // Process all messages from the response
-      const formattedMessages = response.data.messages.map((msg: ApiMessage) => {
-        console.log('Processing message:', msg);
-        return {
-          content: msg.content,
-          isUser: msg.role === 'user',
-          timestamp: formatTimestamp(msg.timestamp)
-        };
-      });
+      const formattedMessages = response.data.messages.map((msg: ApiMessage) => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: formatTimestamp(msg.timestamp),
+        metadata: msg.metadata
+      }));
       
       console.log('Formatted messages to display:', formattedMessages);
       
-      // Now update all state at once to minimize renders
       setActiveChatId(chatId);
       setIsTempChat(false);
       setMessages(formattedMessages);
       
-      // Update the current chat in the context with the new messages
       setCurrentChat({
         id: chatId,
         title: response.data.title,
         createdAt: formatTimestamp(response.data.createdAt || new Date()),
-        messages: response.data.messages.map((msg: ApiMessage) => ({
-          id: msg._id || Date.now().toString(),
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(formatTimestamp(msg.timestamp))
-        }))
+        messages: formattedMessages
       });
     } catch (err: any) {
       console.error('Error sending message:', err);
@@ -299,21 +293,18 @@ const ChatWindow: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Chat header */}
       <div className="flex justify-between items-center px-4 py-2 bg-white border-b border-gray-200">
         <h2 className="text-lg font-semibold text-gray-800">
           {isTempChat ? 'New Chat' : (currentChat?.title || 'Chat')}
         </h2>
       </div>
       
-      {/* Error message */}
       {error && (
         <div className="p-2 bg-red-100 text-red-700 text-sm">
           {error}
         </div>
       )}
       
-      {/* Chat messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isInitializing ? (
           <div className="flex justify-center items-center h-full">
@@ -328,17 +319,13 @@ const ChatWindow: React.FC = () => {
           messages.map((message, index) => (
             <ChatMessage
               key={index}
-              content={message.content}
-              isUser={message.isUser}
-              timestamp={message.timestamp}
-              isLoading={message.isLoading}
+              message={message}
             />
           ))
         )}
         <div ref={messagesEndRef} />
       </div>
       
-      {/* Chat input */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <ChatInput 
           onSendMessage={handleSendMessage}
